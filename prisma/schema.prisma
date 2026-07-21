@@ -1,0 +1,179 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String?
+  image           String?
+  provider        String   @default("credentials") // "google" | "credentials"
+  theme           String   @default("system") // "light" | "dark" | "system"
+  enableMenstrual Boolean  @default(false)
+  currency        String   @default("IDR")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  habits         Habit[]
+  sholatLogs     SholatLog[]
+  hifdzItems     HifdzItem[]
+  targets        Target[]
+  tasks          Task[]
+  budgets        Budget[]
+  savingsGoals   SavingsGoal[]
+  transactions   Transaction[]
+  menstrualLogs  MenstrualLog[]
+}
+
+model Habit {
+  id          String      @id @default(cuid())
+  userId      String
+  title       String
+  icon        String?
+  color       String?
+  schedule    String      @default("daily") // daily | weekly
+  targetCount Int         @default(1)
+  createdAt   DateTime    @default(now())
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs        HabitLog[]
+
+  @@index([userId])
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  date      String // YYYY-MM-DD (local)
+  count     Int      @default(1)
+  habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([habitId, date])
+}
+
+model SholatLog {
+  id      String   @id @default(cuid())
+  userId  String
+  date    String // YYYY-MM-DD
+  subuh   Boolean  @default(false)
+  dzuhur  Boolean  @default(false)
+  ashar   Boolean  @default(false)
+  maghrib Boolean  @default(false)
+  isya    Boolean  @default(false)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model HifdzItem {
+  id           String    @id @default(cuid())
+  userId       String
+  surah        String
+  surahNumber  Int
+  fromAyah     Int
+  toAyah       Int
+  status       String    @default("learning") // learning | memorized | reviewing | weak
+  lastReviewed DateTime?
+  reviewCount  Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Target {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  category    String   @default("personal") // personal | career | deen | health | finance
+  deadline    DateTime?
+  progress    Int      @default(0)
+  archived    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+
+  @@index([userId])
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  userId    String
+  targetId  String?
+  title     String
+  notes     String?
+  dueDate   DateTime?
+  priority  String   @default("medium") // low | medium | high
+  completed Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  target    Target?  @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([targetId])
+}
+
+model Budget {
+  id       String @id @default(cuid())
+  userId   String
+  month    String // YYYY-MM
+  category String
+  limit    Float
+  spent    Float  @default(0)
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month, category])
+  @@index([userId, month])
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Float
+  type      String // income | expense
+  category  String?
+  note      String?
+  date      DateTime @default(now())
+  budgetId  String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model SavingsGoal {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  target    Float
+  current   Float     @default(0)
+  deadline  DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model MenstrualLog {
+  id           String   @id @default(cuid())
+  userId       String
+  startDate    String // YYYY-MM-DD
+  endDate      String?
+  cycleLength  Int      @default(28)
+  periodLength Int      @default(5)
+  symptoms     String? // JSON string of notes
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startDate])
+}
