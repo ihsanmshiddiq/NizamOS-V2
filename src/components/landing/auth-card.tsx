@@ -17,6 +17,18 @@ export function AuthCard() {
   const [email, setEmail] = React.useState('')
   const [name, setName] = React.useState('')
   const [busy, setBusy] = React.useState<'email' | 'google' | null>(null)
+  const [password, setPassword] = React.useState('')
+  const [googleEnabled, setGoogleEnabled] = React.useState(false)
+
+  React.useEffect(() => {
+    // Check if Google OAuth is configured on the server
+    fetch('/api/auth/providers', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => {
+        setGoogleEnabled(!!data?.google)
+      })
+      .catch(() => setGoogleEnabled(false))
+  }, [])
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault()
@@ -24,17 +36,23 @@ export function AuthCard() {
       toast.error('Masukkan emailmu')
       return
     }
+    if (!password || password.length < 6) {
+      toast.error('Password minimal 6 karakter')
+      return
+    }
     setBusy('email')
     try {
       await apiClient.post('/api/auth/login', {
         email: email.trim(),
+        password,
         name: mode === 'signup' ? name.trim() || undefined : undefined,
         provider: 'credentials',
       })
       toast.success(mode === 'signin' ? 'Selamat datang kembali' : 'Akun dibuat')
       await refresh()
-    } catch {
-      toast.error('Gagal masuk. Coba lagi.')
+    } catch (e: any) {
+      const msg = e?.response?.data?.error || 'Gagal masuk. Coba lagi.'
+      toast.error(msg)
     } finally {
       setBusy(null)
     }
@@ -42,15 +60,8 @@ export function AuthCard() {
 
   async function handleGoogle() {
     setBusy('google')
-    try {
-      await apiClient.post('/api/auth/google', {})
-      toast.success('Berhasil masuk dengan Google')
-      await refresh()
-    } catch {
-      toast.error('Masuk dengan Google gagal')
-    } finally {
-      setBusy(null)
-    }
+    // Redirect to NextAuth Google OAuth flow
+    window.location.href = '/api/auth/signin/google'
   }
 
   return (
@@ -72,27 +83,31 @@ export function AuthCard() {
         </div>
       </div>
 
-      <Button
-        type="button"
-        onClick={handleGoogle}
-        disabled={busy !== null}
-        variant="outline"
-        className="mb-4 h-11 w-full rounded-xl bg-background/60 font-medium"
-      >
-        {busy === 'google' ? (
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-foreground/30 border-t-foreground" />
-        ) : (
-          <GoogleIcon className="h-4 w-4" />
-        )}
-        Lanjutkan dengan Google
-      </Button>
+      {googleEnabled && (
+        <>
+          <Button
+            type="button"
+            onClick={handleGoogle}
+            disabled={busy !== null}
+            variant="outline"
+            className="mb-4 h-11 w-full rounded-xl bg-background/60 font-medium"
+          >
+            {busy === 'google' ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-foreground/30 border-t-foreground" />
+            ) : (
+              <GoogleIcon className="h-4 w-4" />
+            )}
+            Lanjutkan dengan Google
+          </Button>
 
-      <div className="relative my-4">
-        <Separator />
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-          atau
-        </span>
-      </div>
+          <div className="relative my-4">
+            <Separator />
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+              atau
+            </span>
+          </div>
+        </>
+      )}
 
       <form onSubmit={handleEmail} className="space-y-3">
         {mode === 'signup' && (
@@ -137,12 +152,12 @@ export function AuthCard() {
             <Input
               id="pw"
               type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               className="h-11 rounded-xl pl-9"
             />
-            <p className="absolute -bottom-4 right-0 text-[10px] text-muted-foreground/70">
-              Demo mode — any password works
-            </p>
+
           </div>
         </div>
 
